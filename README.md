@@ -18,6 +18,23 @@ This workflow automatically fetches the latest job listings from **FreeJobAlert*
 
 ---
 
+# JobAlert n8n Workflow
+
+This repository contains:
+
+- [FreeJobAlert Workflow JSON](./FreeJobAlert%20Workflow.json)  
+- [README.md](./README.md)  
+- [n8n Workflow Diagram](./n8n_workflow.png)
+
+---
+
+## 📥 Download & Import
+
+1. [Click here to view the workflow JSON](./FreeJobAlert%20Workflow.json)
+2. Import it into **n8n** via **Workflow → Import**
+3. Follow instructions in [README.md](./README.md)
+
+
 ## 🛠 Workflow Steps
 
 1. **Schedule Trigger**
