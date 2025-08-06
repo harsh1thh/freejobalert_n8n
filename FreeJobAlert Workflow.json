@@ -1,0 +1,321 @@
+{
+  "name": "FreeJobAlert Notification Update",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        368,
+        -336
+      ],
+      "id": "bb8c97df-8b27-42ba-ae45-41b4e854ae47",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://www.freejobalert.com/",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        -336
+      ],
+      "id": "c1b8bfe5-3ba3-4126-8e69-a290d38ed6af",
+      "name": "Pull FreeJobAlert Homepage"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "Job Title",
+              "cssSelector": "div.gb-container.gb-container-7c6236c1 ul li a",
+              "returnArray": true
+            },
+            {
+              "key": "Link",
+              "cssSelector": "div.gb-container.gb-container-7c6236c1 ul li a",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        -336
+      ],
+      "id": "aee31e20-cada-4654-9d75-360b0f8c67ec",
+      "name": "Job Listings"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "Link",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        -240
+      ],
+      "id": "29e2f949-5c54-430e-943f-21918828bf4f",
+      "name": "Split Jobs"
+    },
+    {
+      "parameters": {
+        "url": "={{$json[\"Link\"]}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1264,
+        -240
+      ],
+      "id": "fd899c5e-074f-4cd0-b817-37951f7f2ed0",
+      "name": "Fetch Job Page"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "qualification",
+              "cssSelector": "#post-1081830 > div > div.entry-content > div.table-container > table.scrollable-table > tbody > tr:nth-child(5)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        1488,
+        -240
+      ],
+      "id": "1709d6f9-3a05-4f74-8b24-f1dc247ae566",
+      "name": "Extract Qualification"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1936,
+        -336
+      ],
+      "id": "c36f5b0d-c2a6-45c3-8e9b-67b49fa10c26",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "Job Title, Link",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1376,
+        -432
+      ],
+      "id": "3d335a8c-8d06-4c98-ac69-db0e927bafd9",
+      "name": "Get Job Title and URL"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Official documented API call:\nconst workflowStaticData = $getWorkflowStaticData('global');\n\n// Initialize persistent list\nif (!workflowStaticData.jobs) {\n  workflowStaticData.jobs = [];\n}\n\n// Current run links\nconst currentLinks = items.map(item => item.json.link);\n\n// Filter fresh items\nconst newItems = items.filter(item => !workflowStaticData.jobs.includes(item.json.link));\n\n// Update store\nworkflowStaticData.jobs = [...new Set([...workflowStaticData.jobs, ...currentLinks])];\n\nreturn newItems;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        -336
+      ],
+      "id": "16dbd675-60c9-461b-9c04-8120562dcb44",
+      "name": "To Store"
+    },
+    {
+      "parameters": {
+        "chatId": "<YOUR_CHAT_ID>",
+        "text": "=📢 New Job Alert!\n\n💬 {{ $json['Job Title'] }}\n\n🔗 {{ $json.Link }}\n\n🎓 {{$json[\"qualification\"]}}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2384,
+        -336
+      ],
+      "id": "73e39f01-659d-414f-9723-05d9fdaccf4e",
+      "name": "Send a text message",
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  // Original qualification text\n  let qual = item.json[\"qualification\"] || \"Not Found\";\n\n  // Clean unwanted parts\n  qual = qual\n    .replace(/\\n+/g, \" \")                // Remove line breaks\n    .replace(/\\s{2,}/g, \" \")             // Remove extra spaces\n    .replace(/^Qualification\\s*/i, \"\")   // Remove leading \"Qualification\"\n    .replace(/^\\*\\s*/, \"\")               // Remove leading bullet \"*\"\n    .trim();\n\n  return {\n    json: {\n      title: item.json[\"Job Title\"],\n      link: item.json[\"Link\"],\n      qualification: qual\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        -240
+      ],
+      "id": "958581fe-44d5-4acf-8f4f-f9ff35999c92",
+      "name": "Cleanup"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Pull FreeJobAlert Homepage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pull FreeJobAlert Homepage": {
+      "main": [
+        [
+          {
+            "node": "Job Listings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Listings": {
+      "main": [
+        [
+          {
+            "node": "Split Jobs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Job Title and URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Jobs": {
+      "main": [
+        [
+          {
+            "node": "Fetch Job Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Job Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Qualification": {
+      "main": [
+        [
+          {
+            "node": "Cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Job Title and URL": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "To Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "To Store": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "79544388-fec4-43b7-8788-cb359dd70a49",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "8b5bbb1b9e1b1b4cbe3c3d8cd78f6a6c30262c13c36f8cfc1f8dc8e37b9da5ee"
+  },
+  "id": "Rph3xbTyZ3LxEhUD",
+  "tags": []
+}
